@@ -19,7 +19,10 @@ from rlbot.parsing.match_settings_config_parser import map_types, game_mode_type
 
 from rlbot_gui.bot_management.bot_creation import bootstrap_python_bot
 from rlbot_gui.bot_management.downloader import download_and_extract_zip
-from rlbot_gui.match_runner.match_runner import hot_reload_bots, shut_down, start_match_helper, do_infinite_loop_content
+from rlbot_gui.match_runner.match_runner import (
+    hot_reload_bots, shut_down, start_match_helper,
+    do_infinite_loop_content, start_training_helper
+)
 
 DEFAULT_BOT_FOLDER = 'default_bot_folder'
 BOT_FOLDER_SETTINGS_KEY = 'bot_folder_settings'
@@ -52,9 +55,32 @@ class GameTickReader:
         return self.game_tick_packet
 
 
+game_tick_packet = None
+
+GAME_TICK_PACKET_REFRESHES_PER_SECOND = 120  # 2*60. https://en.wikipedia.org/wiki/Nyquist_rate
+
+
+class GameTickReader:
+    def __init__(self):
+        self.logger = get_logger('packet reader')
+        self.game_interface = GameInterface(self.logger)
+        self.game_interface.inject_dll()
+        self.game_interface.load_interface()
+        self.game_tick_packet = game_data_struct.GameTickPacket()
+
+    def get_packet(self):
+        self.game_interface.update_live_data_packet(self.game_tick_packet)
+        return self.game_tick_packet
+
+
 @eel.expose
 def start_match(bot_list, match_settings):
     eel.spawn(start_match_helper, bot_list, match_settings)
+
+
+@eel.expose
+def start_training(playlist, bot):
+    eel.spawn(start_training_helper, playlist, bot)
 
 
 @eel.expose
